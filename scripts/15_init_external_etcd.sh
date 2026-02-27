@@ -9,15 +9,8 @@ ETCD_VERSION="${ETCD_VERSION:-3.5.15}"
 retry_download() {
   local url="$1"
   local out_file="$2"
-  local attempts="${3:-8}"
-  local n=1
-  until curl -fL --connect-timeout 15 --max-time 180 --retry 5 --retry-delay 2 --retry-all-errors "${url}" -o "${out_file}"; do
-    if [[ "${n}" -ge "${attempts}" ]]; then
-      return 1
-    fi
-    n=$((n + 1))
-    sleep 4
-  done
+  # Use curl's built-in retry logic; the outer function wrapper is kept for call-site compatibility.
+  curl -fL --connect-timeout 15 --max-time 180 --retry 5 --retry-delay 2 --retry-all-errors "${url}" -o "${out_file}"
 }
 
 export DEBIAN_FRONTEND=noninteractive
@@ -28,7 +21,10 @@ if ! id -u etcd >/dev/null 2>&1; then
   useradd --system --home-dir /var/lib/etcd --shell /usr/sbin/nologin etcd
 fi
 
-installed_version="$(etcd --version 2>/dev/null | awk '/^etcd Version:/ {print $3}' || true)"
+installed_version=""
+if command -v etcd >/dev/null 2>&1; then
+  installed_version="$(etcd --version 2>/dev/null | awk '/^etcd Version:/ {print $3}')"
+fi
 if [[ "${installed_version}" != "${ETCD_VERSION}" || ! -x /usr/local/bin/etcdctl ]]; then
   tmp_dir="$(mktemp -d)"
   archive="etcd-v${ETCD_VERSION}-linux-amd64.tar.gz"
@@ -76,5 +72,4 @@ CFG
 
 systemctl daemon-reload
 systemctl enable etcd
-chown -R etcd:etcd /var/lib/etcd
 systemctl restart etcd

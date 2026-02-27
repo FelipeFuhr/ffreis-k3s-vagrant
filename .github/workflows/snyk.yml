@@ -35,7 +35,7 @@ concurrency:
 
 jobs:
   snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    if: ${{ secrets.SNYK_TOKEN && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -56,6 +56,9 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
+          # set -e is intentionally omitted: we capture the exit code and exit 0
+          # so that the SARIF upload step runs even when Snyk finds issues.
+          # Policy enforcement happens in the "Enforce Snyk policy" step below.
           set -uo pipefail
           mkdir -p snyk-results
           snyk code test --sarif-file-output=snyk-results/code.sarif
@@ -68,6 +71,9 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
+          # set -e is intentionally omitted: we capture the exit code and exit 0
+          # so that the SARIF upload step runs even when Snyk finds issues.
+          # Policy enforcement happens in the "Enforce Snyk policy" step below.
           set -uo pipefail
           snyk iac test . --sarif-file-output=snyk-results/iac.sarif
           rc=$?

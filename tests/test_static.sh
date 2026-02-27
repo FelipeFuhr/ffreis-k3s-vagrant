@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+command -v ruby >/dev/null 2>&1 || { echo "ruby not found"; exit 1; }
 ruby -c Vagrantfile >/dev/null
 
 for script in scripts/*.sh; do
@@ -32,9 +33,9 @@ required_keys=(
 
 for key in "${required_keys[@]}"; do
   if ! grep -q "^${key}=" config/cluster.env.example; then
-    echo "Missing required key in k3s config: ${key}"
+    echo "Missing required key in cluster config (config/cluster.env.example): ${key}"
     exit 1
   fi
 done
 
-echo "k3s static checks passed"
+echo "static checks passed"

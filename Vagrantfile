@@ -122,7 +122,7 @@ Vagrant.configure('2') do |config|
       elsif node[:role] == 'server'
         machine.vm.provision 'shell', path: 'scripts/20_join_server.sh', env: {
           'K3S_VERSION' => k3s_version,
-          'SERVER_IP' => "#{network_prefix}.11",
+          'SERVER_IP' => node[:ip],
           'SERVER_ENDPOINT' => server_endpoint,
           'EXTERNAL_ETCD_ENDPOINTS' => external_etcd_endpoints,
           'K3S_CLUSTER_TOKEN' => k3s_cluster_token
