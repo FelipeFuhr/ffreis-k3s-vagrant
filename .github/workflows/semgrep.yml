@@ -52,6 +52,9 @@ jobs:
       - name: Run semgrep (SARIF)
         id: semgrep_scan
         run: |
+          # set -e is intentionally omitted: we capture the exit code and exit 0
+          # so that the SARIF upload step runs even when Semgrep finds issues.
+          # Policy enforcement happens in the "Enforce Semgrep policy" step below.
           set -uo pipefail
           mkdir -p semgrep-results
           semgrep scan --config auto --error --sarif --output semgrep-results/semgrep.sarif
