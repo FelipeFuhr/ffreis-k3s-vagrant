@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json'
+require 'yaml'
 
 cp_count = Integer(ENV.fetch('KUBE_CP_COUNT', '3'))
 worker_count = Integer(ENV.fetch('KUBE_WORKER_COUNT', '5'))
@@ -22,59 +23,91 @@ etcd_cpus = Integer(ENV.fetch('KUBE_ETCD_CPUS', '1'))
 etcd_memory = Integer(ENV.fetch('KUBE_ETCD_MEMORY', '1024'))
 k3s_version = ENV.fetch('K3S_VERSION', 'v1.30.6+k3s1')
 k3s_cluster_token = ENV.fetch('K3S_CLUSTER_TOKEN', 'k3s-vagrant-shared-token')
+node_inventory_file = ENV.fetch('NODE_INVENTORY_FILE', '').strip
 
 raise 'KUBE_CP_COUNT must be >= 1' if cp_count < 1
 raise 'KUBE_ETCD_COUNT must be >= 3' if etcd_count < 3
 
 nodes = []
-if api_lb_enabled
-  nodes << {
-    name: 'api-lb',
-    role: 'api-lb',
-    ip: api_lb_ip,
-    cpus: api_lb_cpus,
-    memory: api_lb_memory
+if !node_inventory_file.empty?
+  raw_inventory = YAML.safe_load(File.read(node_inventory_file))
+  raw_nodes = raw_inventory.is_a?(Hash) ? raw_inventory['nodes'] : raw_inventory
+  raise 'NODE_INVENTORY_FILE must contain a top-level nodes list' unless raw_nodes.is_a?(Array)
+
+  role_map = {
+    'control-plane' => 'server',
+    'worker' => 'agent',
+    'etcd' => 'etcd',
+    'api-lb' => 'api-lb'
   }
+  nodes = raw_nodes.map do |node|
+    role = role_map.fetch(node['role']) { raise "Unsupported role '#{node['role']}' in NODE_INVENTORY_FILE" }
+    {
+      name: node.fetch('name'),
+      role: role,
+      ip: node.fetch('ip'),
+      cpus: Integer(node.fetch('cpu')),
+      memory: Integer(node.fetch('memory_mb'))
+    }
+  end
+else
+  if api_lb_enabled
+    nodes << {
+      name: 'api-lb',
+      role: 'api-lb',
+      ip: api_lb_ip,
+      cpus: api_lb_cpus,
+      memory: api_lb_memory
+    }
+  end
+
+  etcd_nodes = []
+  (1..etcd_count).each do |index|
+    etcd_nodes << {
+      name: "etcd#{index}",
+      role: 'etcd',
+      ip: "#{network_prefix}.#{20 + index}",
+      cpus: etcd_cpus,
+      memory: etcd_memory
+    }
+  end
+  nodes.concat(etcd_nodes)
+
+  (1..cp_count).each do |index|
+    nodes << {
+      name: "cp#{index}",
+      role: 'server',
+      ip: "#{network_prefix}.#{10 + index}",
+      cpus: cp_cpus,
+      memory: cp_memory
+    }
+  end
+
+  (1..worker_count).each do |index|
+    nodes << {
+      name: "worker#{index}",
+      role: 'agent',
+      ip: "#{network_prefix}.#{100 + index}",
+      cpus: worker_cpus,
+      memory: worker_memory
+    }
+  end
 end
 
-etcd_nodes = []
-(1..etcd_count).each do |index|
-  etcd_nodes << {
-    name: "etcd#{index}",
-    role: 'etcd',
-    ip: "#{network_prefix}.#{20 + index}",
-    cpus: etcd_cpus,
-    memory: etcd_memory
-  }
-end
-nodes.concat(etcd_nodes)
+etcd_nodes = nodes.select { |node| node[:role] == 'etcd' }
+server_nodes = nodes.select { |node| node[:role] == 'server' }
+raise 'NODE_INVENTORY_FILE must define at least one control-plane node' if server_nodes.empty?
+raise 'NODE_INVENTORY_FILE must define at least three etcd nodes' if etcd_nodes.size < 3
 
-(1..cp_count).each do |index|
-  nodes << {
-    name: "cp#{index}",
-    role: 'server',
-    ip: "#{network_prefix}.#{10 + index}",
-    cpus: cp_cpus,
-    memory: cp_memory
-  }
-end
-
-(1..worker_count).each do |index|
-  nodes << {
-    name: "worker#{index}",
-    role: 'agent',
-    ip: "#{network_prefix}.#{100 + index}",
-    cpus: worker_cpus,
-    memory: worker_memory
-  }
-end
-
+primary_server = server_nodes.first
+cp_count = server_nodes.size
 external_etcd_endpoints = etcd_nodes.map { |node| "http://#{node[:ip]}:2379" }.join(',')
 external_etcd_initial_cluster = etcd_nodes.map { |node| "#{node[:name]}=http://#{node[:ip]}:2380" }.join(',')
-server_endpoint = if api_lb_enabled
-                    "https://#{api_lb_ip}:6443"
+resolved_api_lb = nodes.find { |node| node[:role] == 'api-lb' }
+server_endpoint = if resolved_api_lb
+                    "https://#{resolved_api_lb[:ip]}:6443"
                   else
-                    "https://#{network_prefix}.11:6443"
+                    "https://#{primary_server[:ip]}:6443"
                   end
 
 File.write('.vagrant-nodes.json', JSON.pretty_generate(nodes))
@@ -111,7 +144,7 @@ Vagrant.configure('2') do |config|
           'ETCD_IP' => node[:ip],
           'ETCD_INITIAL_CLUSTER' => external_etcd_initial_cluster
         }
-      elsif node[:name] == 'cp1'
+      elsif node[:name] == primary_server[:name]
         machine.vm.provision 'shell', path: 'scripts/10_init_server.sh', env: {
           'K3S_VERSION' => k3s_version,
           'SERVER_IP' => node[:ip],
@@ -130,7 +163,7 @@ Vagrant.configure('2') do |config|
       elsif node[:role] == 'agent'
         machine.vm.provision 'shell', path: 'scripts/30_join_agent.sh', env: {
           'K3S_VERSION' => k3s_version,
-          'SERVER_IP' => "#{network_prefix}.11",
+          'SERVER_IP' => primary_server[:ip],
           'SERVER_ENDPOINT' => server_endpoint,
           'K3S_CLUSTER_TOKEN' => k3s_cluster_token
         }

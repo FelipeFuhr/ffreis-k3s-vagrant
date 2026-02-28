@@ -107,3 +107,19 @@ If bring-up fails:
    ```bash
    make etcd-connectivity
    ```
+
+## Optional Inventory Input
+
+You can provide explicit node definitions (names/roles/IP/CPU/memory) by setting:
+
+```bash
+NODE_INVENTORY_FILE=/abs/path/node-inventory.yaml make up
+```
+
+The existing count-based flow remains the default when `NODE_INVENTORY_FILE` is not set.
+
+Validate inventory schema before bring-up:
+
+```bash
+make validate-inventory NODE_INVENTORY_FILE=/abs/path/node-inventory.yaml
+```
