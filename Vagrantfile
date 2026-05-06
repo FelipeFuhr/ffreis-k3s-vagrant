@@ -22,7 +22,7 @@ api_lb_memory = Integer(ENV.fetch('KUBE_API_LB_MEMORY', '512'))
 etcd_cpus = Integer(ENV.fetch('KUBE_ETCD_CPUS', '1'))
 etcd_memory = Integer(ENV.fetch('KUBE_ETCD_MEMORY', '1024'))
 k3s_version = ENV.fetch('K3S_VERSION', 'v1.30.6+k3s1')
-k3s_cluster_token = ENV.fetch('K3S_CLUSTER_TOKEN', 'k3s-vagrant-shared-token')
+k3s_cluster_token = ENV.fetch('K3S_CLUSTER_TOKEN', 'CHANGE_ME')
 node_inventory_file = ENV.fetch('NODE_INVENTORY_FILE', '').strip
 
 raise 'KUBE_CP_COUNT must be >= 1' if cp_count < 1

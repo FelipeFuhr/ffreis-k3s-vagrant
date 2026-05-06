@@ -4,7 +4,7 @@ set -euo pipefail
 K3S_VERSION="${K3S_VERSION:-v1.30.6+k3s1}"
 SERVER_IP="${SERVER_IP:-10.30.0.11}"
 SERVER_ENDPOINT="${SERVER_ENDPOINT:-https://${SERVER_IP}:6443}"
-K3S_CLUSTER_TOKEN="${K3S_CLUSTER_TOKEN:-k3s-vagrant-shared-token}"
+K3S_CLUSTER_TOKEN="${K3S_CLUSTER_TOKEN:-CHANGE_ME}"
 CP1_ENDPOINT="https://${SERVER_IP}:6443"
 
 if systemctl is-active --quiet k3s-agent; then
