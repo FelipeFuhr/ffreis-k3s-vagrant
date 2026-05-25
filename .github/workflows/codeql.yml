@@ -18,6 +18,6 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-codeql.yml@9d1fde17e23354e2650258481fa6b2a7a6f67e40
+    uses: FelipeFuhr/ffreis-workflows-general/.github/workflows/general-codeql.yml@d9792d01b442d7f2d3d2c6855cb312d885594e0f
     with:
       languages: "python"
