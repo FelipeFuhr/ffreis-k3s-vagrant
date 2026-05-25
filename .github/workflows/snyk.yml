@@ -9,10 +9,6 @@ on:
   schedule:
     - cron: "0 10 * * 1"
 
-permissions:
-  contents: read
-  security-events: write
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -20,6 +16,10 @@ concurrency:
 jobs:
   snyk:
     if: ${{ secrets.SNYK_TOKEN && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
