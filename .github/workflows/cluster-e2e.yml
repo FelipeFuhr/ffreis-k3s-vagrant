@@ -22,21 +22,17 @@ concurrency:
 jobs:
   e2e-self-hosted:
     name: E2E k3s (cp=${{ matrix.cp }} wk=${{ matrix.wk }})
-    if: ${{ github.event_name != 'pull_request' || matrix.heavy != true }}
+    runs-on: [self-hosted, linux]
     timeout-minutes: 180
     permissions:
       contents: read
-    runs-on: [self-hosted, linux]
+    # `matrix` context is not available in job-level `if:`. Build the matrix
+    # itself conditionally so PRs only run the light topology while
+    # schedule/workflow_dispatch runs both.
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - cp: 1
-            wk: 1
-            heavy: false
-          - cp: 3
-            wk: 5
-            heavy: true
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"cp":1,"wk":1}]' || '[{"cp":1,"wk":1},{"cp":3,"wk":5}]') }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
