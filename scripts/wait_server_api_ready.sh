@@ -80,13 +80,11 @@ while true; do
     fi
   fi
 
-  if [[ "${cp1_local_ready}" -eq 1 && "${cp1_advertised_ready}" -eq 1 ]]; then
-    if [[ "${lb_required}" -eq 0 || "${lb_ready}" -eq 1 ]]; then
-      if [[ "${waited}" -gt 0 ]]; then
-        echo "k3s API readiness gate passed after ${waited}s"
-      fi
-      exit 0
+  if [[ "${cp1_local_ready}" -eq 1 && "${cp1_advertised_ready}" -eq 1 && ("${lb_required}" -eq 0 || "${lb_ready}" -eq 1) ]]; then
+    if [[ "${waited}" -gt 0 ]]; then
+      echo "k3s API readiness gate passed after ${waited}s"
     fi
+    exit 0
   fi
 
   if (( waited == 0 || waited % report_interval == 0 )); then
