@@ -24,8 +24,8 @@ jobs:
       - name: Install semgrep
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install semgrep
+          python -m pip install --upgrade "pip==25.1.1"
+          python -m pip install "semgrep==1.165.0"
 
       - name: Run semgrep (SARIF)
         id: semgrep_scan
