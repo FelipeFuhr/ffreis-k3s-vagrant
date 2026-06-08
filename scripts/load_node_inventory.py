@@ -28,10 +28,69 @@ def load_yaml_via_ruby(path: str) -> Any:
     return json.loads(out)
 
 
-def validate_inventory(data: Any) -> list[dict[str, Any]]:
+def _extract_nodes_list(data: Any) -> list[Any]:
     nodes = data.get("nodes") if isinstance(data, dict) else data
     if not isinstance(nodes, list):
         raise ValueError("inventory must be a list or an object with a top-level 'nodes' list")
+    return nodes
+
+
+def _parse_node_resources(idx: int, cpu: Any, memory_mb: Any) -> tuple[int, int]:
+    try:
+        cpu_int = int(cpu)
+        mem_int = int(memory_mb)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"nodes[{idx}] cpu and memory_mb must be integers") from exc
+    if cpu_int <= 0 or mem_int <= 0:
+        raise ValueError(f"nodes[{idx}] cpu and memory_mb must be > 0")
+    return cpu_int, mem_int
+
+
+def _resolve_pool(idx: int, role: str, pool: Any) -> str | None:
+    if role == "worker":
+        if not isinstance(pool, str) or not pool.strip():
+            raise ValueError(f"nodes[{idx}] worker nodes require non-empty pool")
+        return pool.strip()
+    return None
+
+
+def _validate_node(
+    idx: int, node: Any, names: set[str]
+) -> tuple[dict[str, Any], str]:
+    if not isinstance(node, dict):
+        raise ValueError(f"nodes[{idx}] must be an object")
+
+    name = str(node.get("name", "")).strip()
+    role = str(node.get("role", "")).strip()
+    ip = str(node.get("ip", "")).strip()
+
+    if not name:
+        raise ValueError(f"nodes[{idx}].name is required")
+    if name in names:
+        raise ValueError(f"duplicate node name: {name}")
+    names.add(name)
+
+    if role not in ALLOWED_ROLES:
+        raise ValueError(f"nodes[{idx}].role '{role}' is invalid")
+    if not ip:
+        raise ValueError(f"nodes[{idx}].ip is required")
+
+    cpu_int, mem_int = _parse_node_resources(idx, node.get("cpu"), node.get("memory_mb"))
+    pool = _resolve_pool(idx, role, node.get("pool"))
+
+    entry: dict[str, Any] = {
+        "name": name,
+        "role": role,
+        "ip": ip,
+        "cpu": cpu_int,
+        "memory_mb": mem_int,
+        **({"pool": pool} if pool else {}),
+    }
+    return entry, role
+
+
+def validate_inventory(data: Any) -> list[dict[str, Any]]:
+    nodes = _extract_nodes_list(data)
 
     names: set[str] = set()
     normalized: list[dict[str, Any]] = []
@@ -39,57 +98,12 @@ def validate_inventory(data: Any) -> list[dict[str, Any]]:
     etcd_count = 0
 
     for idx, node in enumerate(nodes, start=1):
-        if not isinstance(node, dict):
-            raise ValueError(f"nodes[{idx}] must be an object")
-
-        name = str(node.get("name", "")).strip()
-        role = str(node.get("role", "")).strip()
-        ip = str(node.get("ip", "")).strip()
-        cpu = node.get("cpu")
-        memory_mb = node.get("memory_mb")
-        pool = node.get("pool")
-
-        if not name:
-            raise ValueError(f"nodes[{idx}].name is required")
-        if name in names:
-            raise ValueError(f"duplicate node name: {name}")
-        names.add(name)
-
-        if role not in ALLOWED_ROLES:
-            raise ValueError(f"nodes[{idx}].role '{role}' is invalid")
-        if not ip:
-            raise ValueError(f"nodes[{idx}].ip is required")
-
-        try:
-            cpu_int = int(cpu)
-            mem_int = int(memory_mb)
-        except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"nodes[{idx}] cpu and memory_mb must be integers") from exc
-        if cpu_int <= 0 or mem_int <= 0:
-            raise ValueError(f"nodes[{idx}] cpu and memory_mb must be > 0")
-
-        if role == "worker":
-            if not isinstance(pool, str) or not pool.strip():
-                raise ValueError(f"nodes[{idx}] worker nodes require non-empty pool")
-            pool = pool.strip()
-        else:
-            pool = None
-
+        entry, role = _validate_node(idx, node, names)
+        normalized.append(entry)
         if role == "control-plane":
             cp_count += 1
         if role == "etcd":
             etcd_count += 1
-
-        normalized.append(
-            {
-                "name": name,
-                "role": role,
-                "ip": ip,
-                "cpu": cpu_int,
-                "memory_mb": mem_int,
-                **({"pool": pool} if pool else {}),
-            }
-        )
 
     if cp_count < 1:
         raise ValueError("inventory requires at least one control-plane node")
