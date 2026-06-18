@@ -24,7 +24,9 @@ jobs:
           [ -n "${SNYK_TOKEN}" ] || (echo "Missing required secret: SNYK_TOKEN" >&2; exit 1)
 
   snyk:
-    if: ${{ secrets.SNYK_TOKEN && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    # scan-fix(actionlint:expression): secrets context not available in job-level if — use needs.require-secrets.result instead
+    needs: [require-secrets]
+    if: ${{ needs.require-secrets.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
     permissions:
       contents: read
       actions: read
@@ -42,7 +44,7 @@ jobs:
       - name: Install Snyk CLI
         run: |
           set -euo pipefail
-          npm install -g snyk
+          npm install -g "snyk@1.1305.1" --ignore-scripts
           snyk --version
 
       - name: Run Snyk Code

@@ -25,7 +25,9 @@ jobs:
           [ -n "${SONAR_ORGANIZATION}" ] || (echo "Missing required secret: SONAR_ORGANIZATION" >&2; exit 1)
 
   sonar:
-    if: ${{ secrets.SONAR_TOKEN && secrets.SONAR_PROJECT_KEY && secrets.SONAR_ORGANIZATION && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
+    # scan-fix(actionlint:expression): secrets context not available in job-level if — use needs.require-secrets.result instead
+    needs: [require-secrets]
+    if: ${{ needs.require-secrets.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
     permissions:
       contents: read
     runs-on: ubuntu-latest

@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   semgrep:
+    permissions:
+      contents: read
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -24,8 +26,8 @@ jobs:
       - name: Install semgrep
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install semgrep
+          python -m pip install --upgrade "pip==25.1.1"
+          python -m pip install "semgrep==1.165.0"
 
       - name: Run semgrep (SARIF)
         id: semgrep_scan

@@ -1,5 +1,9 @@
 # k3s Vagrant Lab
 
+<!-- ffreis-badges:start -->
+[![CI](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/FelipeFuhr/ffreis-badges/main/badges/ffreis-k3s-vagrant/ci.json)](https://github.com/FelipeFuhr/ffreis-k3s-vagrant/actions) [![License](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/FelipeFuhr/ffreis-badges/main/badges/ffreis-k3s-vagrant/license.json)](https://github.com/FelipeFuhr/ffreis-k3s-vagrant/blob/main/LICENSE)
+<!-- ffreis-badges:end -->
+
 Deterministic k3s lab on Vagrant VMs, including dedicated external etcd nodes and optional API load balancer.
 
 ## What this gives you
