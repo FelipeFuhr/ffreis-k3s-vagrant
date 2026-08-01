@@ -184,3 +184,12 @@ test-examples:
 		echo "Expected --self-test failure to return non-zero"; \
 		exit 1; \
 	fi
+
+# scan-fix(lefthook:base.yml pre-commit secret-scan): added missing target — the
+# ffreis-platform-standards lefthook remote's secret-scan command runs
+# `make secrets-scan-staged`, which this Makefile never defined, silently
+# skipping staged-secret scanning on every commit.
+.PHONY: secrets-scan-staged
+secrets-scan-staged: ## Scan staged diff for secrets (used by base.yml pre-commit)
+	@command -v gitleaks >/dev/null 2>&1 && gitleaks protect --staged --redact \
+		|| echo "gitleaks not installed; skipping staged secret scan"
